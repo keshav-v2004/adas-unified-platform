@@ -158,6 +158,155 @@ router.get('/analytics/kpis', async (req, res) => {
     }
 });
 
+router.get('/analytics/frame-insights', async (req, res) => {
+    try {
+        const totalFrames = await AdasData.countDocuments();
+
+        const dangerRaw = await AdasData.aggregate([
+            {
+                $project: {
+                    dangerBucket: {
+                        $switch: {
+                            branches: [
+                                { case: { $lte: ['$Danger', 0] }, then: 'L0 Safe' },
+                                { case: { $eq: ['$Danger', 1] }, then: 'L1 Caution' },
+                                { case: { $eq: ['$Danger', 2] }, then: 'L2 Warning' },
+                                { case: { $eq: ['$Danger', 3] }, then: 'L3 Danger' }
+                            ],
+                            default: 'L4 Critical'
+                        }
+                    }
+                }
+            },
+            { $group: { _id: '$dangerBucket', count: { $sum: 1 } } }
+        ]);
+
+        const statusFrequencyRaw = await AdasData.aggregate([
+            { $group: { _id: '$Status_Label', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 8 }
+        ]);
+
+        const steeringBucketsRaw = await AdasData.aggregate([
+            {
+                $bucket: {
+                    groupBy: '$Steering_Angle',
+                    boundaries: [-45, -36, -27, -18, -9, 0, 9, 18, 27, 36, 45],
+                    default: 'other',
+                    output: {
+                        count: { $sum: 1 }
+                    }
+                }
+            }
+        ]);
+
+        const safetyScatterRaw = await AdasData.find({}, { Min_Dist: 1, Safety_Pct: 1, Danger: 1 })
+            .sort({ _id: -1 })
+            .limit(180)
+            .lean();
+
+        const threatSourceRaw = await AdasData.aggregate([
+            {
+                $project: {
+                    inferredSource: {
+                        $switch: {
+                            branches: [
+                                {
+                                    case: {
+                                        $and: [
+                                            { $lte: ['$FR', '$FL'] },
+                                            { $lte: ['$FR', '$BL'] },
+                                            { $lte: ['$FR', '$BR'] }
+                                        ]
+                                    },
+                                    then: 'FR'
+                                },
+                                {
+                                    case: {
+                                        $and: [
+                                            { $lte: ['$BR', '$FL'] },
+                                            { $lte: ['$BR', '$BL'] },
+                                            { $lte: ['$BR', '$FR'] }
+                                        ]
+                                    },
+                                    then: 'BR'
+                                },
+                                {
+                                    case: {
+                                        $and: [
+                                            { $lte: ['$FL', '$FR'] },
+                                            { $lte: ['$FL', '$BL'] },
+                                            { $lte: ['$FL', '$BR'] }
+                                        ]
+                                    },
+                                    then: 'FL'
+                                }
+                            ],
+                            default: 'BL'
+                        }
+                    }
+                }
+            },
+            { $group: { _id: '$inferredSource', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+
+        const aggressionTimelineRaw = await AdasData.find({}, { Aggression_Score: 1 })
+            .sort({ _id: -1 })
+            .limit(60)
+            .lean();
+
+        const dangerOrder = ['L0 Safe', 'L1 Caution', 'L2 Warning', 'L3 Danger', 'L4 Critical'];
+        const dangerMap = Object.fromEntries(dangerRaw.map((d) => [d._id, d.count]));
+        const dangerDistribution = dangerOrder.map((label) => ({ label, count: dangerMap[label] || 0 }));
+
+        const steeringLabelOrder = ['-45', '-36', '-27', '-18', '-9', '0', '9', '18', '27', '36'];
+        const steeringMap = Object.fromEntries(
+            steeringBucketsRaw
+                .filter((row) => row._id !== 'other')
+                .map((row) => [String(row._id), row.count])
+        );
+        const steeringDistribution = steeringLabelOrder.map((label) => ({ label, count: steeringMap[label] || 0 }));
+
+        const statusFrequency = statusFrequencyRaw.map((row) => ({
+            label: row._id || 'UNKNOWN',
+            count: row.count
+        }));
+
+        const safetyScatter = safetyScatterRaw
+            .reverse()
+            .map((row) => ({
+                x: parseFloat(row.Min_Dist) || 0,
+                y: parseFloat(row.Safety_Pct) || 0,
+                danger: parseFloat(row.Danger) || 0
+            }));
+
+        const threatSourceBreakdown = threatSourceRaw.map((row) => ({
+            label: row._id,
+            count: row.count
+        }));
+
+        const aggressionTimeline = aggressionTimelineRaw
+            .reverse()
+            .map((row, idx) => ({
+                frame: idx + 1,
+                value: parseFloat(row.Aggression_Score) || 0
+            }));
+
+        res.json({
+            totalFrames,
+            dangerDistribution,
+            statusFrequency,
+            steeringDistribution,
+            safetyScatter,
+            threatSourceBreakdown,
+            aggressionTimeline
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.get('/analytics/r-insights', async (req, res) => {
     try {
         const latestSession = await SessionSummary.findOne().sort({ sessionDate: -1 }).lean();
