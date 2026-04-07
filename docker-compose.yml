@@ -7,14 +7,23 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  ml-engine:
+    build: ./ml-engine
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+
   backend:
     build: ./backend
     ports:
       - "5000:5000"
     environment:
       - MONGO_URI=mongodb://mongo:27017/adas_db
+      # Pass the ML engine's internal Docker network URL
+      - ML_SERVICE_URL=http://ml-engine:5001
     depends_on:
       - mongo
+      - ml-engine
 
   frontend:
     build: ./frontend
