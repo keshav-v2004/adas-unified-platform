@@ -5,6 +5,8 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const Analytics = () => {
   const [viewMode, setViewMode] = useState('historical'); // 'historical' or 'session'
   const [historicalData, setHistoricalData] = useState(null);
@@ -12,12 +14,12 @@ const Analytics = () => {
 
   useEffect(() => {
     // 1. Fetch Historical PowerBI Replacement Data
-    axios.get('http://localhost:5000/api/adas/analytics/kpis')
+    axios.get(`${API_BASE}/adas/analytics/kpis`)
       .then(res => setHistoricalData(res.data))
       .catch(err => console.log(err));
 
     // 2. Fetch Live Session Engineered Data
-    axios.get('http://localhost:5000/api/adas/analytics/session')
+    axios.get(`${API_BASE}/adas/analytics/session`)
       .then(res => setSessionData(res.data))
       .catch(err => console.log("No session data yet"));
   }, [viewMode]);

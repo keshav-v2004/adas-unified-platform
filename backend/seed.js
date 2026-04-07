@@ -1,34 +1,43 @@
 const mongoose = require('mongoose');
-const fs = require('fs');
-const csv = require('csv-parser');
-const AdasData = require('./models/AdasData');
-require('dotenv').config();
+const SessionSummary = require('./models/SessionSummary');
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/adas_db';
-const CSV_FILE_PATH = './ADAS FINAL ANALYSIS LAST (1).csv'; // Make sure your dataset is named exactly this
+// Hardcoding the exact Docker network path and database name
+const MONGO_URI = 'mongodb://mongo:27017/adas_db';
 
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log('Connected to MongoDB. Starting data seed...');
-    return AdasData.deleteMany({}); // Clear existing data to avoid duplicates
-  })
-  .then(() => {
-    const results = [];
-    fs.createReadStream(CSV_FILE_PATH)
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', async () => {
-        try {
-          await AdasData.insertMany(results);
-          console.log(`✅ Successfully inserted ${results.length} historical records!`);
-          process.exit();
-        } catch (error) {
-          console.error('❌ Error inserting data:', error);
-          process.exit(1);
+async function seedDatabase() {
+    try {
+        console.log("🔌 Connecting to MongoDB...");
+        await mongoose.connect(MONGO_URI);
+        
+        // This line tells us EXACTLY which database it opened
+        console.log("✅ Connected to Database:", mongoose.connection.name);
+
+        console.log("🧹 Clearing old data...");
+        await SessionSummary.deleteMany({});
+
+        console.log("🌱 Generating 50 historical sessions...");
+        const dummySessions = [];
+
+        for (let i = 0; i < 50; i++) {
+            dummySessions.push({
+                // Generates random dates over the last few months
+                sessionDate: new Date(Date.now() - Math.random() * 10000000000), 
+                totalFrames: Math.floor(Math.random() * 500) + 120,
+                avgSafetyPct: (Math.random() * 30) + 70, // Random safety between 70% and 100%
+                sparkPredictedAnomalies: Math.floor(Math.random() * 4),
+                totalCriticalRisk: Math.floor(Math.random() * 3),
+                avgRearThreat: (Math.random() * 100) + 250
+            });
         }
-      });
-  })
-  .catch(err => {
-    console.error('❌ Database connection error:', err);
-    process.exit(1);
-  });
+
+        await SessionSummary.insertMany(dummySessions);
+        console.log(`🎉 SUCCESS! 50 sessions injected directly into adas_db -> sessionsummaries`);
+
+        process.exit(0);
+    } catch (err) {
+        console.error("❌ Seeding error:", err);
+        process.exit(1);
+    }
+}
+
+seedDatabase();

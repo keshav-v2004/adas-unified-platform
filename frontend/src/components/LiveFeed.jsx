@@ -644,6 +644,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const LiveFeed = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [frame, setFrame] = useState(1);
@@ -671,7 +673,7 @@ const LiveFeed = () => {
   useEffect(() => {
     const fetchInsights = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/adas/insights');
+        const res = await axios.get(`${API_BASE}/adas/insights`);
         setMlInsights(res.data);
       } catch (err) {
         console.log("No ML insights yet. Run spark_model.py in the backend.");
@@ -683,7 +685,7 @@ const LiveFeed = () => {
   const startSession = async () => {
     setBackendError(null);
     try {
-      await axios.post('http://localhost:5000/api/adas/session/start');
+      await axios.post(`${API_BASE}/adas/session/start`);
       setIsPlaying(true);
       if (frame >= totalFrames) setFrame(1);
       setEventLog([]);
@@ -700,7 +702,7 @@ const LiveFeed = () => {
     setIsProcessing(true);
     clearInterval(intervalRef.current);
     try {
-      await axios.post('http://localhost:5000/api/adas/session/stop');
+      await axios.post(`${API_BASE}/adas/session/stop`);
       alert("Session saved! Pipelines finished successfully.");
     } catch (err) { console.error(err); }
     finally { setIsProcessing(false); }
@@ -771,7 +773,7 @@ const LiveFeed = () => {
           });
         }
 
-        try { await axios.post('http://localhost:5000/api/adas/session/record', currentData); } catch (err) {}
+        try { await axios.post(`${API_BASE}/adas/session/record`, currentData); } catch (err) {}
         setFrame(prev => prev + 1);
       }, 250); 
     } else if (frame > totalFrames && isPlaying) {

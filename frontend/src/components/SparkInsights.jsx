@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const SparkInsights = () => {
   const [sessionData, setSessionData] = useState(null);
 
   useEffect(() => {
     // Fetch the data that was generated after the user clicked 'Stop' on the Live Feed
-    axios.get('http://localhost:5000/api/adas/analytics/session')
+    axios.get(`${API_BASE}/adas/analytics/session`)
       .then(res => setSessionData(res.data))
       .catch(() => console.log("No session data yet"));
   }, []);
