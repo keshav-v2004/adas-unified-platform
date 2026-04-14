@@ -316,10 +316,33 @@ router.get('/analytics/r-insights', async (req, res) => {
             { $limit: 5 }
         ]);
 
+        const safeDivide = (numerator, denominator) => {
+            if (!denominator || denominator <= 0) return 0;
+            return numerator / denominator;
+        };
+
+        const totalFrames = latestSession?.totalFrames || 0;
+        const criticalFrameRate = safeDivide(latestSession?.totalCriticalRisk || 0, totalFrames) * 100;
+        const modelAlertRate = safeDivide(latestSession?.sparkPredictedAnomalies || 0, totalFrames) * 100;
+        const hardManeuverRate = safeDivide((latestSession?.hardTurns || 0) + (latestSession?.criticalBrakes || 0), totalFrames) * 100;
+
+        const derivedMetrics = {
+            sessionSafetyPct: latestSession?.avgSafetyPct || 0,
+            avgAggressionScore: latestSession?.avgAggressionScore || 0,
+            avgRearDistanceCm: latestSession?.avgRearThreat || 0,
+            criticalFrameRate,
+            modelAlertRate,
+            hardManeuverRate,
+            totalFrames,
+            topStatusLabel: statusBreakdown[0]?._id || 'UNKNOWN',
+            topStatusCount: statusBreakdown[0]?.count || 0
+        };
+
         const response = {
             latestSession: latestSession || null,
             totalFramesStored: await AdasData.countDocuments(),
-            topStatuses: statusBreakdown
+            topStatuses: statusBreakdown,
+            metrics: derivedMetrics
         };
 
         res.json(response);
@@ -328,13 +351,51 @@ router.get('/analytics/r-insights', async (req, res) => {
     }
 });
 
-// Provide static metadata for the PySpark UI tab
-router.get('/insights', (req, res) => {
-    res.json({
-        model_type: "RandomForestClassifier (Pre-trained)",
-        accuracy: "96.4",
-        features_used: ["FL", "FR", "BL", "BR", "Steering_Angle", "Aggression_Score"]
-    });
+// Provide PySpark model metadata + latest live-session inference metrics
+router.get('/insights', async (req, res) => {
+    try {
+        const latestSession = await SessionSummary.findOne().sort({ sessionDate: -1 }).lean();
+
+        const totalFrames = latestSession?.totalFrames || 0;
+        const highRiskFrames = latestSession?.sparkPredictedAnomalies || 0;
+        const criticalFrames = latestSession?.totalCriticalRisk || 0;
+        const safeDivide = (numerator, denominator) => (denominator > 0 ? numerator / denominator : 0);
+
+        const response = {
+            model: {
+                name: 'RandomForestClassifier',
+                library: 'PySpark MLlib',
+                mode: 'Batch inference on session frames',
+                trainingConfig: {
+                    numTrees: 20,
+                    maxDepth: 10,
+                    labelColumn: 'Danger',
+                    featureColumn: 'features',
+                    highRiskRule: 'prediction >= 3'
+                },
+                featuresUsed: ['FL', 'FR', 'BL', 'BR', 'Steering_Angle', 'Aggression_Score']
+            },
+            liveSession: latestSession
+                ? {
+                    available: true,
+                    sessionDate: latestSession.sessionDate,
+                    totalFrames,
+                    highRiskFrames,
+                    highRiskRatePct: Number((safeDivide(highRiskFrames, totalFrames) * 100).toFixed(2)),
+                    criticalFrames,
+                    criticalRatePct: Number((safeDivide(criticalFrames, totalFrames) * 100).toFixed(2)),
+                    avgAggressionScore: Number((latestSession.avgAggressionScore || 0).toFixed(2)),
+                    avgSafetyPct: Number((latestSession.avgSafetyPct || 0).toFixed(2))
+                }
+                : {
+                    available: false
+                }
+        };
+
+        res.json(response);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = router;

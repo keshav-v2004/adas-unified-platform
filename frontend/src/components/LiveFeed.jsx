@@ -667,6 +667,12 @@ const LiveFeed = () => {
   
   // NEW STATE FOR PYSPARK INSIGHTS
   const [mlInsights, setMlInsights] = useState(null);
+  const modelInfo = mlInsights?.model || mlInsights;
+  const featureList = Array.isArray(modelInfo?.featuresUsed)
+    ? modelInfo.featuresUsed
+    : Array.isArray(mlInsights?.features_used)
+      ? mlInsights.features_used
+      : [];
   const intervalRef = useRef(null);
 
   // Fetch PySpark Insights on load
@@ -1019,20 +1025,23 @@ const LiveFeed = () => {
              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Model Type</span>
-                 <span style={{ fontSize: '11px', color: 'var(--scan)', fontWeight: 'bold' }}>{mlInsights.model_type}</span>
+                 <span style={{ fontSize: '11px', color: 'var(--scan)', fontWeight: 'bold' }}>{modelInfo?.name || mlInsights.model_type || 'N/A'}</span>
                </div>
                
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                 <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Training Accuracy</span>
-                 <span style={{ fontSize: '16px', color: 'var(--c2)', fontWeight: 'bold', fontFamily: 'var(--mono)' }}>{mlInsights.accuracy}%</span>
+                 <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Mode</span>
+                 <span style={{ fontSize: '11px', color: 'var(--c2)', fontWeight: 'bold', fontFamily: 'var(--mono)' }}>{modelInfo?.mode || modelInfo?.library || 'PySpark MLlib'}</span>
                </div>
 
                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '4px' }}>
                  <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '6px', textTransform: 'uppercase' }}>Features Used</div>
                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                   {mlInsights.features_used.map(f => (
+                   {featureList.map(f => (
                      <span key={f} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', color: 'var(--text)' }}>{f}</span>
                    ))}
+                   {featureList.length === 0 && (
+                     <span style={{ fontSize: '10px', color: 'var(--dim)' }}>No feature metadata available.</span>
+                   )}
                  </div>
                </div>
              </div>
