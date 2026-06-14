@@ -4,6 +4,28 @@ End-to-end ADAS simulation platform built with a MERN-style architecture plus an
 
 The system simulates multi-sensor vehicle data in real time, performs post-session feature engineering and ML inference, stores frame/session analytics in MongoDB, and visualizes insights through a React dashboard.
 
+## Project Showcase
+Web Dashboard (MERN Platform)
+<img width="1915" height="917" alt="image" src="https://github.com/user-attachments/assets/038182c2-dfb3-458a-8fd8-2838c79fcd0c" />
+Highlights
+Real-time ADAS telemetry simulation
+Multi-tab analytics dashboard
+MongoDB-powered persistence layer
+R feature engineering pipeline
+PySpark Random Forest inference
+Session-level and frame-level analytics
+
+## TinyML Hardware Prototype
+<img width="1336" height="747" alt="image" src="https://github.com/user-attachments/assets/539f1e7f-42d9-445d-ba70-61b74f598bbc" />
+Hardware Components
+Arduino Uno
+4 Ultrasonic Sensors
+LCD Display
+Buzzer Alert System
+TinyML Deployment Workflow
+
+The hardware setup mirrors the software simulation environment, enabling future deployment of edge-based ADAS intelligence.
+
 ## 1. Project Goals
 
 - Simulate Advanced Driver Assistance System (ADAS) telemetry using four ultrasonic zones (FL, FR, BL, BR).
